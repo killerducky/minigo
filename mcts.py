@@ -22,6 +22,7 @@ import numpy as np
 import collections
 import random
 import math
+import os
 
 import coords
 import go
@@ -34,6 +35,9 @@ c_PUCT = 1.38
 
 def D_NOISE_ALPHA(): return 0.03 * 19 / go.N
 
+
+# Progressive widening
+PWIDEN = float(os.environ.get('MINIGO_PWIDEN', 0.0))
 
 class DummyNode(object):
     """A fake node of a MCTS search tree.
@@ -84,7 +88,11 @@ class MCTSNode(object):
 
     @property
     def child_action_score(self):
-        return self.child_Q * self.position.to_play + self.child_U - self.illegal_moves
+        return self.child_Q * self.position.to_play + self.child_U - self.illegal_moves - self.child_PWiden
+
+    @property
+    def child_PWiden(self):
+        return PWIDEN * (self.child_N == 0)
 
     @property
     def child_Q(self):
@@ -268,13 +276,13 @@ class MCTSNode(object):
         output = []
         output.append("{q:.4f}\n".format(q=self.Q))
         output.append(self.most_visited_path())
-        output.append(
-            "move:  action      Q      U      P    P-Dir    N  soft-N  p-delta  p-rel\n")
-        output.append("\n".join(["{!s:6}: {: .3f}, {: .3f}, {:.3f}, {:.3f}, {:.3f}, {:4d} {:.4f} {: .5f} {: .2f}".format(
+        output.append("move:  action      Q       U    PWiden   P    P-Dir    N  soft-N  p-delta  p-rel\n")
+        output.append("\n".join(["{!s:6}: {: .3f}, {: .3f}, {: .3f}, {:.3f}, {:.3f}, {:.3f}, {:4d} {:.4f} {: .5f} {: .2f}".format(
             coords.to_human_coord(coords.unflatten_coords(key)),
             self.child_action_score[key],
             self.child_Q[key],
             self.child_U[key],
+            self.child_PWiden[key],
             self.child_prior[key],
             self.original_prior[key],
             int(self.child_N[key]),
