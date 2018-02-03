@@ -84,7 +84,56 @@ class MCTSNode(object):
 
     @property
     def child_action_score(self):
-        return self.child_Q * self.position.to_play + self.child_U - self.illegal_moves
+        return self.child_puct_x + self.child_puct_c - self.child_puct_m
+
+    @property
+    def child_puct_x(self):
+        s = self.child_N
+        x = self.child_Q * self.position.to_play
+        it = np.nditer(s, flags=['f_index'])
+        while not it.finished:
+            i = it.index
+            if s[i] == 0:
+                x[i] = 1
+            it.iternext()
+        return x
+
+    @property
+    def child_puct_c(self):
+        M = self.child_prior
+        #t = sum(self.child_N) + 1
+        t = self.N + 1
+        s = self.child_N
+
+        c = np.zeros([go.N * go.N + 1])
+        # TODO: Learn numpy.
+        it = np.nditer(s, flags=['f_index'])
+        while not it.finished:
+            i = it.index
+            #print(i)
+            if s[i] > 0:
+                c[i] = math.sqrt(3*math.log(t)/(2*s[i]))
+                #print("ci=", c[i])
+            it.iternext()
+        return c
+
+    @property
+    def child_puct_m(self):
+        M = self.child_prior
+        #t = sum(self.child_N) + 1
+        t = self.N + 1
+        s = self.child_N
+
+        m = 2/M
+        # TODO: Learn numpy.
+        it = np.nditer(s, flags=['f_index'])
+        while not it.finished:
+            i = it.index
+            #print(i)
+            if t > 1:
+                m[i] = (2/M[i]) * math.sqrt(math.log(t)/t)
+            it.iternext()
+        return m
 
     @property
     def child_Q(self):
@@ -269,10 +318,12 @@ class MCTSNode(object):
         output.append("{q:.4f}\n".format(q=self.Q))
         output.append(self.most_visited_path())
         output.append(
-            "move:  action      Q      U      P    P-Dir    N  soft-N  p-delta  p-rel\n")
-        output.append("\n".join(["{!s:6}: {: .3f}, {: .3f}, {:.3f}, {:.3f}, {:.3f}, {:4d} {:.4f} {: .5f} {: .2f}".format(
+            "move:  actpuct     puct_c    puct_m     Q      U      P    P-Dir    N  soft-N  p-delta  p-rel\n")
+        output.append("\n".join(["{!s:6}: {: 9.3f}, {: .3f}, {: 9.3f}, {: .3f}, {:.3f}, {:.3f}, {:.3f}, {:4d} {:.4f} {: .5f} {: .2f}".format(
             coords.to_human_coord(coords.unflatten_coords(key)),
             self.child_action_score[key],
+            self.child_puct_c[key],
+            self.child_puct_m[key],
             self.child_Q[key],
             self.child_U[key],
             self.child_prior[key],
