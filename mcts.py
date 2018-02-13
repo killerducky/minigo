@@ -122,6 +122,16 @@ class MCTSNode(object):
         "Return value of position, from perspective of player to play."
         return self.Q * self.position.to_play
 
+    # As the search collects more data, update unvisited children with the
+    # new more accurate prior.
+    # TODO: Maybe we could update even the nodes we have already visited?
+    # We could remove the prior from child_W and always add it in one of
+    # the getter functions
+    def update_child_W_prior(self):
+        update = (self.child_N == 0) * np.ones([go.N * go.N + 1], dtype=np.float32) * self.Q
+        hold = (self.child_N != 0) * self.child_W
+        self.child_W = update + hold
+
     def select_leaf(self):
         current = self
         pass_move = go.N * go.N
@@ -138,6 +148,7 @@ class MCTSNode(object):
                 current = current.maybe_add_child(pass_move)
                 continue
 
+            current.update_child_W_prior()
             best_move = np.argmax(current.child_action_score)
             current = current.maybe_add_child(best_move)
         return current
@@ -271,6 +282,7 @@ class MCTSNode(object):
         return ' '.join(output)
 
     def describe(self):
+        self.update_child_W_prior()
         sort_order = list(range(go.N * go.N + 1))
         sort_order.sort(key=lambda i: (
             self.child_N[i], self.child_action_score[i]), reverse=True)
